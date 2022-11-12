@@ -6,7 +6,7 @@ def psf2otf(psf, outSize):
     psfSize = np.array(psf.shape)
     outSize = np.array(outSize)
     padSize = outSize - psfSize
-    psf = np.pad(psf, ((0, padSize[0]), (0, padSize[1])), 'constant') #TODO
+    psf = np.pad(psf, ((0, padSize[0]), (0, padSize[1])), 'constant')
     for i in range(len(psfSize)):
         psf = np.roll(psf, -int(psfSize[i] / 2), i)
     otf = np.fft.fftn(psf)
@@ -48,8 +48,6 @@ def color_convolution(image,kernel):
 '''
 Reducing boundary artifacts
 '''
-
-
 def opt_fft_size(n):
     '''
     Kai Zhang (github: https://github.com/cszn)

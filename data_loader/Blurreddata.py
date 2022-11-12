@@ -3,7 +3,6 @@ import os
 import glob
 import numpy as np
 import math
-import imageio
 import random
 import torch
 import torch.utils.data as data
@@ -112,30 +111,35 @@ class Dataset(data.Dataset):
 		#img_blurred  = np.power(img_blurred,1/2.2)
 		return img_kernel,torch.FloatTensor(img_sharp),torch.FloatTensor(img_blurred)
 
-'''
-Real World Datset
-'''
+
+#####################
+# Real World Dataset
+#####################
 class Real_World_Dataset(Dataset):
 	def __init__(self, sharp, kernel, noise_level):
 		super().__init__(sharp, kernel, noise_level)
 		self.KERNEL_FLIP_FLAG = False
+		self.file_list = sorted([name for name in os.listdir(self.sharp) if os.path.isfile(os.path.join(self.sharp, name))])
+		self.kernel_list = sorted([name for name in os.listdir(self.kernel) if os.path.isfile(os.path.join(self.kernel, name))])
+		self.sharp_num=len(self.file_list)
+		self.kernel_num=len(self.kernel_list)
+
+
 	
 	def __len__(self):
 		return len(self.file_list)
 
 	def set_data_path(self,index):
 		sharp  = os.path.join(self.sharp  ,self.file_list  [index])
-		kernel = os.path.join(self.kernel ,self.file_list [index])
+		kernel = os.path.join(self.kernel ,self.kernel_list [index] )
 		return sharp,kernel
 
 	def __getitem__(self, index: int) :
 		#handle path
 		blurred,kernel=self.set_data_path(index)
-
 		img_blurred  = cv2.imread(blurred)/255.0
 		img_kernel =cv2.imread(kernel,cv2.IMREAD_GRAYSCALE)
 		kh,kw = img_kernel.shape
-
 		if kh != kw:
 			k_large = max(kh,kw)
 			print("Pad kerenl to {}".format(k_large))
@@ -156,13 +160,15 @@ class Real_World_Dataset(Dataset):
 		img_blurred = torch.FloatTensor(img_blurred)
 		img_kernel=torch.FloatTensor(img_kernel.copy()).repeat(3, 1, 1)
 
-		return img_kernel,img_blurred,img_blurred
+		return img_kernel,img_blurred
 
 
 
-'''
-Blind Deblur Benchmark Dataset
-'''
+
+
+#####################
+# Saturated Dataset
+#####################
 class Low_light_Dataset(Dataset):
 	def __init__(self, blurred,sharp,kernel,noise_level,gray_mode=False,additive_noise = False,random_flag = False):
 		self.blurred = blurred
@@ -230,7 +236,7 @@ class Low_light_Dataset(Dataset):
 			return img_kernel,img_sharp,img_blurred
 
 #####################
-# CVPR2021,Chen (NBD)
+# Night Dataset
 #####################
 class Chen_Low_light_Dataset(Low_light_Dataset):
 	def __init__(self, blurred,sharp,kernel,noise_level,gray_mode=True,additive_noise = False,random_flag = False):
@@ -265,7 +271,9 @@ class Chen_Low_light_Dataset(Low_light_Dataset):
 		return len(self.file_list)
 
 
-
+###########################
+# Low-illumination Dataset 
+###########################
 class Pan_Low_light_Dataset(Low_light_Dataset):
 	def __init__(self, blurred,sharp,kernel,noise_level,gray_mode=False):
 		self.blurred = blurred
@@ -291,39 +299,6 @@ class Pan_Low_light_Dataset(Low_light_Dataset):
 		blurred = os.path.join(self.blurred  ,blurred_file)
 		sharp   = os.path.join(self.sharp  ,'saturated_img%d.png'%(int(index/self.kernel_num)+1))
 		kernel  = os.path.join(self.kernel ,'ker0%d_truth.png'%(int(index%self.kernel_num)+1))#'{:06d}.jpg'
-		return sharp,blurred,kernel
-
-	def __len__(self):
-		return len(self.file_list)
-
-
-
-
-class Lai_Low_light_Dataset(Low_light_Dataset):
-	def __init__(self, blurred,sharp,kernel,noise_level,gray_mode=False):
-		self.blurred = blurred
-		self.sharp   =sharp
-		self.kernel =kernel
-		self.noise_level  =  noise_level 
-		self.gray_mode = gray_mode
-		#self.file_list = sorted([name for name in os.listdir(self.blurred) if os.path.isfile(os.path.join(self.blurred, name))])
-		self.file_list = []
-		self.sharp_num = len([name for name in os.listdir(self.sharp) if os.path.isfile(os.path.join(self.sharp, name))])
-		# magic number
-		self.kernel_num = 4 #len([name for name in os.listdir(self.kernel) if os.path.isfile(os.path.join(self.kernel, name))])
-		for id in range(0,20):
-			self.file_list.append( "saturated_0{}_kernel_0{}.png".format(int(id/self.kernel_num)+1,int(id%self.kernel_num)+1) )
-		# handle flag
-		self.KERNEL_FLIP_FLAG = True
-		self.BLURRED_FLAG = False 
-		self.additive_noise=False
-		self.summary()
-
-	def set_data_path(self,index):
-		blurred_file = "saturated_0{}_kernel_0{}.png".format(int(index/self.kernel_num)+1,int(index%self.kernel_num)+1)
-		blurred = os.path.join(self.blurred  ,blurred_file)
-		sharp   = os.path.join(self.sharp  ,'saturated_0%d.png'%(int(index/self.kernel_num)+1))
-		kernel  = os.path.join(self.kernel ,'kernel_0%d.png'%(int(index%self.kernel_num)+1))#'{:06d}.jpg'
 		return sharp,blurred,kernel
 
 	def __len__(self):

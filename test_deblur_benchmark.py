@@ -2,17 +2,14 @@ import argparse
 import time
 import torch
 import numpy as np
-import numpy as np
 import argparse
 from data_loader.data_loaders import Low_light_DataLoader,Chen_Low_light_DataLoader,Pan_Low_light_DataLoader
 import os
 from tqdm import tqdm
-# util function
-from utils import utils_image as util_dir
 from skimage import img_as_ubyte
 import piq
-from model.model import DPSHS
-from model.util import MetricTracker, tensor_to_np_multiple, save_img_with_PSNR, matlabPSNR, torchPSNR
+from model.model import DPSHS,DPSHS_merge
+from model.util import MetricTracker, tensor_to_np_multiple, save_img_with_PSNR, matlabPSNR, torchPSNR, mkdirs
 # Fix random seeds for reproducibility
 SEED = 123
 torch.manual_seed(SEED)
@@ -24,7 +21,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-dataset", "--dataset", type=str, default="Hu", help='')
 parser.add_argument("-log", "--log", type=str, default="Compare_Hu/", help='')
 parser.add_argument("-all_test", "--all_test", action='store_true', help='')
-parser.add_argument("-local_path", "-local_path", type=str, default="/work/leo870823/Motion_deblur", help='')
+parser.add_argument("-local_path", "-local_path", type=str, default="./", help='')
 args = parser.parse_args()
 if __name__ == '__main__':
 	# Environment setting
@@ -32,11 +29,11 @@ if __name__ == '__main__':
 		device='cuda'
 	else:
 		device='cpu' 
-	IMG_DIR = args.log
 	ALL_FLAG = args.all_test
 	DATASET = args.dataset
 	GRAY_MODE = False
 	LOCAL_PATH = args.local_path
+	IMG_DIR = os.path.join(args.local_path,args.log )
 	SOLVER_LIST=[]
 
 	if DATASET == "Hu":
@@ -95,7 +92,7 @@ if __name__ == '__main__':
 				   test_loader.get_data_set().file_list.index('saturated_img3_4_blur.png'),
 				   test_loader.get_data_set().file_list.index('saturated_img6_4_blur.png')]
 
-	solver = DPSHS(    max_iter = 100,
+	solver = DPSHS_merge(    max_iter = 100,
 			  		   _lambda = 2e-5,
 					   rho = 0.1,
 					   default_mode = "normal",
@@ -113,15 +110,11 @@ if __name__ == '__main__':
 		(N,C,H,W) = img_blurred.shape
 		for i,solver in tqdm(enumerate(SOLVER_LIST)):	
 			mode = type(solver).__name__
-			if solver.Monitor_FLAG:
-				solver.gt = img
-			filenames = test_loader.get_data_set().file_list[SEED][:-4] #"%s"%str(ii)
-			print(filenames)
-			solver.filenames = filenames
-			WO_LOG = os.path.join(IMG_DIR,"wo_log")	
+			filenames = test_loader.get_data_set().file_list[SEED][:-4]
+			WO_LOG = os.path.join(IMG_DIR,"wo_log/")	
 			#path setting
-			util_dir.mkdirs(WO_LOG)
-			util_dir.mkdirs(IMG_DIR)
+			mkdirs(WO_LOG)
+			mkdirs(IMG_DIR)
 			#Blurred image
 			solver.eval()
 			time_start = time.time()
@@ -158,7 +151,7 @@ if __name__ == '__main__':
 			# Save images
 			###############	
 			save_img_with_PSNR(os.path.join(WO_LOG, filenames+"_{}_wo.png".format(mode)),restored_img,golden_img,kernel_img,PSNR_flag=False)
-			deblurred_log = os.path.join(IMG_DIR,  filenames+'_%s_deblurred'%(mode)+".png")
+			deblurred_log = os.path.join(IMG_DIR,  filenames+'_%s_deblurred.png'%(mode))
 			deblurred_psnr,_ = save_img_with_PSNR(deblurred_log, restored_img.copy(),golden_img,kernel_img,WEIGHT_DICT={},PSNR = deblurred_psnr ,SSIM = deblurred_ssim)
 
 

@@ -4,6 +4,7 @@ import torch
 import numpy as np
 import math
 import pandas as pd
+from os import mkdir,makedirs
 
 class MetricTracker:
     def __init__(self, *keys, writer=None):
@@ -95,3 +96,11 @@ def save_img_with_PSNR(filepath, img, golden, kernel_np, PSNR = 100 ,SSIM = 1.0 
 	cv2.imwrite(filepath, img)
 	if PSNR_flag:
 		return PSNR,SSIM
+
+
+def mkdirs(paths):
+    if isinstance(paths, str):
+        makedirs(paths, exist_ok=True)
+    else:
+        for path in paths:
+            makedirs(path, exist_ok=True)
