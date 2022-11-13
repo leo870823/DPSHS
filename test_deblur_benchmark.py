@@ -8,7 +8,7 @@ import os
 from tqdm import tqdm
 from skimage import img_as_ubyte
 import piq
-from model.model import DPSHS,DPSHS_merge
+from model.model import DPSHS
 from model.util import MetricTracker, tensor_to_np_multiple, save_img_with_PSNR, matlabPSNR, torchPSNR, mkdirs
 # Fix random seeds for reproducibility
 SEED = 123
@@ -92,7 +92,7 @@ if __name__ == '__main__':
 				   test_loader.get_data_set().file_list.index('saturated_img3_4_blur.png'),
 				   test_loader.get_data_set().file_list.index('saturated_img6_4_blur.png')]
 
-	solver = DPSHS_merge(    max_iter = 100,
+	solver = DPSHS(    max_iter = 100,
 			  		   _lambda = 2e-5,
 					   rho = 0.1,
 					   default_mode = "normal",
