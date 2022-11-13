@@ -21,17 +21,17 @@ Please put the drunet_color.pth below model/pre-trained.
 
 ## Reproduce the Saturated Dataset
 ```
-python3 test_deblur_benchmark.py -dataset Hu -log Log/Compare_Saturated/ -all_test
+python3 test_deblur_benchmark.py -dataset Hu -log Log/Compare_Saturated/
 ```
 
 ## Reproduce the Low-illumination Dataset
 ```
-python3 test_deblur_benchmark.py -dataset Pan -log Log/Compare_Low/ -all_test
+python3 test_deblur_benchmark.py -dataset Pan -log Log/Compare_Low/
 ```
 
 ## Reproduce the Night Dataset
 ```
-python3 test_deblur_benchmark.py -dataset Chen -log Log/Compare_Night/ -all_test
+python3 test_deblur_benchmark.py -dataset Chen -log Log/Compare_Night/
 ```
 
 ## Reproduce the Real World Blurry Images

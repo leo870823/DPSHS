@@ -18,7 +18,7 @@ torch.backends.cudnn.benchmark = False
 np.random.seed(SEED)
 # Parser arguments
 parser = argparse.ArgumentParser()
-parser.add_argument("-log", "--log", type=str, default="Compare_real_world/", help='')
+parser.add_argument("-log", "--log", type=str, default="Log/Compare_Real_World/", help='')
 parser.add_argument("-all_test", "--all_test", action='store_true', help='')
 parser.add_argument("-local_path", "-local_path", type=str, default="./", help='')
 args = parser.parse_args()
