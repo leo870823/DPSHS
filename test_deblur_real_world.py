@@ -35,10 +35,8 @@ if __name__ == '__main__':
 
 	
 	test_loader  = Real_World_DataLoader(
-				blurred = None,
-				sharp ="{}/Benchmark/Real_World/blurred".format(LOCAL_PATH),
+				blurred = "{}/Benchmark/Real_World/blurred".format(LOCAL_PATH),
 				kernel="{}/Benchmark/Real_World/kernel".format(LOCAL_PATH),
-				noise_level=1, #1% gaussian noise 
 				batch_size=1,
 				shuffle=False,
 				validation_split=0.0,
@@ -74,7 +72,6 @@ if __name__ == '__main__':
 			#path setting
 			mkdirs(WO_LOG)
 			mkdirs(IMG_DIR)
-			#Blurred image
 			solver.eval()
 			time_start = time.time()
 			with torch.no_grad():

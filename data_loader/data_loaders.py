@@ -5,7 +5,7 @@ from data_loader.Blurreddata import Pan_Low_light_Dataset,Chen_Low_light_Dataset
 # 2014 Hu
 #############
 class Low_light_DataLoader(BaseDataLoader):
-    def __init__(self,blurred,sharp,kernel,noise_level, batch_size,gray_mode=False,shuffle=True, validation_split=0.0, num_workers=1, training=True):
+    def __init__(self,blurred,sharp,kernel, batch_size, noise_level=0, gray_mode=False,shuffle=True, validation_split=0.0, num_workers=1, training=True):
         self.dataset = Low_light_Dataset(blurred,sharp,kernel,noise_level,gray_mode)
         super().__init__(self.dataset, batch_size, shuffle, validation_split, num_workers)
 
@@ -13,7 +13,7 @@ class Low_light_DataLoader(BaseDataLoader):
 # 2021 Chen
 #############
 class Chen_Low_light_DataLoader(BaseDataLoader):
-    def __init__(self,blurred,sharp,kernel,noise_level, batch_size,gray_mode=False,shuffle=True, validation_split=0.0, num_workers=1, training=True,additive_noise = False,random_flag = False):
+    def __init__(self,blurred,sharp,kernel, batch_size, noise_level=0, gray_mode=False,shuffle=True, validation_split=0.0, num_workers=1, training=True,additive_noise = False,random_flag = False):
         self.dataset = Chen_Low_light_Dataset(blurred,sharp,kernel,noise_level,gray_mode,additive_noise = additive_noise,random_flag = random_flag)
         super().__init__(self.dataset, batch_size, shuffle, validation_split, num_workers)
 
@@ -21,7 +21,7 @@ class Chen_Low_light_DataLoader(BaseDataLoader):
 # 2016 Pan
 #############
 class Pan_Low_light_DataLoader(BaseDataLoader):
-    def __init__(self,blurred,sharp,kernel,noise_level, batch_size,gray_mode=False,shuffle=True, validation_split=0.0, num_workers=1, training=True):
+    def __init__(self,blurred,sharp,kernel, batch_size, noise_level=0, gray_mode=False,shuffle=True, validation_split=0.0, num_workers=1, training=True):
         self.dataset = Pan_Low_light_Dataset(blurred,sharp,kernel,noise_level,gray_mode)
         super().__init__(self.dataset, batch_size, shuffle, validation_split, num_workers)
 
@@ -29,7 +29,7 @@ class Pan_Low_light_DataLoader(BaseDataLoader):
 # Real World
 #############
 class Real_World_DataLoader(BaseDataLoader):
-    def __init__(self,blurred,sharp,kernel,noise_level, batch_size,gray_mode=False,shuffle=True, validation_split=0.0, num_workers=1, training=True,additive_noise = False,random_flag = False):
-        self.dataset = Real_World_Dataset( sharp,kernel,noise_level)
+    def __init__(self,blurred,kernel, batch_size, noise_level=0, gray_mode=False,shuffle=True, validation_split=0.0, num_workers=1, training=True,additive_noise = False,random_flag = False):
+        self.dataset = Real_World_Dataset( blurred, kernel, noise_level)
         super().__init__(self.dataset, batch_size, shuffle, validation_split, num_workers)
 

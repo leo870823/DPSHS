@@ -41,7 +41,6 @@ if __name__ == '__main__':
 				blurred="{}/Benchmark/2014HU/blurry_image".format(LOCAL_PATH),
 				sharp  = "{}/Benchmark/2014HU/clear_image".format(LOCAL_PATH),
 				kernel =      "{}/Benchmark/2014HU/kernel".format(LOCAL_PATH),
-				noise_level=1, #1% gaussian noise 
 				batch_size=1,
 				shuffle=False,
 				validation_split=0.0,
@@ -51,7 +50,8 @@ if __name__ == '__main__':
 			print("all data mode: totoal {} image".format(test_loader.dataset.__len__()))
 			SEED_LIST = range(0,test_loader.dataset.__len__())
 		else:
-   			SEED_LIST = [test_loader.get_data_set().file_list.index('6_f10.png'),
+   			SEED_LIST = [test_loader.get_data_set().file_list.index('10_f9.png'),
+          				 test_loader.get_data_set().file_list.index('6_f10.png'),
 				   		 test_loader.get_data_set().file_list.index('8_f13.png')]
 
 	elif DATASET == "Chen":
@@ -60,7 +60,6 @@ if __name__ == '__main__':
 				sharp  =  "{}/Benchmark/2021Chen/testset_public/gt_gray".format(LOCAL_PATH),
 				kernel =   "{}/Benchmark/2021Chen/testset_public/kernel".format(LOCAL_PATH),
 				gray_mode=GRAY_MODE,
-				noise_level=1, #1% gaussian noise 
 				batch_size=1,
 				shuffle=False,
 				validation_split=0.0,
@@ -70,15 +69,16 @@ if __name__ == '__main__':
 			print("all data mode: totoal {} image".format(test_loader.dataset.__len__()))
 			SEED_LIST = range(0,test_loader.dataset.__len__())
 		else:
-			SEED_LIST = [ test_loader.get_data_set().file_list.index('1.png'),
-						  test_loader.get_data_set().file_list.index('7.png')]
+			SEED_LIST = [ test_loader.get_data_set().file_list.index('7.png'),
+						  test_loader.get_data_set().file_list.index('10.png'),
+						  test_loader.get_data_set().file_list.index('11.png')
+        		]
 
 	elif DATASET == "Pan":
 		test_loader = Pan_Low_light_DataLoader(
 			blurred="{}/Benchmark/2016Pan/low-illumination/blur_images".format(LOCAL_PATH),
 			sharp  =  "{}/Benchmark/2016Pan/low-illumination/gt_images".format(LOCAL_PATH),
 			kernel =     "{}/Benchmark/2016Pan/low-illumination/kernel".format(LOCAL_PATH),
-			noise_level=2.55, #1% gaussian noise 
 			batch_size=1,
 			shuffle=False,
 			validation_split=0.0,
@@ -115,7 +115,6 @@ if __name__ == '__main__':
 			#path setting
 			mkdirs(WO_LOG)
 			mkdirs(IMG_DIR)
-			#Blurred image
 			solver.eval()
 			time_start = time.time()
 			with torch.no_grad():
@@ -123,8 +122,6 @@ if __name__ == '__main__':
 			time_end = time.time()
 			time_diff = time_end-time_start
 			print("Total deblurring time:",time_diff) 
-
-
 			###############
 			# tensor2numpy
 			###############

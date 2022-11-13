@@ -116,12 +116,13 @@ class Dataset(data.Dataset):
 # Real World Dataset
 #####################
 class Real_World_Dataset(Dataset):
-	def __init__(self, sharp, kernel, noise_level):
-		super().__init__(sharp, kernel, noise_level)
+	def __init__(self, blurred, kernel, noise_level):
+		super().__init__(blurred, kernel, noise_level)
+		self.blurred, self.kernel = blurred, kernel
 		self.KERNEL_FLIP_FLAG = False
-		self.file_list = sorted([name for name in os.listdir(self.sharp) if os.path.isfile(os.path.join(self.sharp, name))])
+		self.file_list = sorted([name for name in os.listdir(self.blurred) if os.path.isfile(os.path.join(self.blurred, name))])
 		self.kernel_list = sorted([name for name in os.listdir(self.kernel) if os.path.isfile(os.path.join(self.kernel, name))])
-		self.sharp_num=len(self.file_list)
+		self.blurred_num=len(self.file_list)
 		self.kernel_num=len(self.kernel_list)
 
 
@@ -130,9 +131,9 @@ class Real_World_Dataset(Dataset):
 		return len(self.file_list)
 
 	def set_data_path(self,index):
-		sharp  = os.path.join(self.sharp  ,self.file_list  [index])
+		blurred  = os.path.join(self.blurred  ,self.file_list  [index])
 		kernel = os.path.join(self.kernel ,self.kernel_list [index] )
-		return sharp,kernel
+		return blurred,kernel
 
 	def __getitem__(self, index: int) :
 		#handle path
@@ -243,7 +244,6 @@ class Chen_Low_light_Dataset(Low_light_Dataset):
 		self.blurred = blurred
 		self.sharp   =sharp
 		self.kernel =kernel
-		self.noise_level  =  noise_level 
 		self.gray_mode = gray_mode
 		self.additive_noise = additive_noise
 		self.noise_level  =  noise_level 
@@ -253,7 +253,7 @@ class Chen_Low_light_Dataset(Low_light_Dataset):
 		self.sharp_num = len([name for name in os.listdir(self.sharp) if os.path.isfile(os.path.join(self.sharp, name))])
 		self.kernel_num = len([name for name in os.listdir(self.kernel) if os.path.isfile(os.path.join(self.kernel, name))])
 		# magic number
-		for id in range(1,self.sharp_num+1):
+		for id in range(1,101):
 			self.file_list.append( "{}.png".format(id) )
 		# handle flag
 		self.KERNEL_FLIP_FLAG = False

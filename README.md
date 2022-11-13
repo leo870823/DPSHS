@@ -10,12 +10,14 @@ Deep Plug-and-play Nighttime Non-blind Deblurring with Saturated Pixel Handling 
 ## Install Packages
 pip3 install -r requirement.txt -f https://download.pytorch.org/whl/cu113/torch_stable.html
 
+## Download the DRUNet pre-trained model from [DPIR](https://drive.google.com/drive/folders/13kfr3qny7S2xwG9h7v95F5mkWs0OmU0D) 
+Please put the drunet_color.pth below model/pre-trained.
 
 ## Benchmark Datasets
 * [The Saturated Dataset from Hu et al.](https://eng.ucmerced.edu/people/zhu/CVPR14_lightstreak.html)
 * [Low-illumination Dataset from Pan et al.](https://pan.baidu.com/s/1O2AezDHc64GzHyU_U7BX4g)
 * [Night Dataset from Chen et al.](https://drive.google.com/file/d/1C7J9rn2xbeJ4-Aom4KEQJdpFyBd2M4Zv/view)
-* Download all datasets and then in the Benchmark/ folder 
+* Download all datasets and then put them below the Benchmark/ folder.
 
 ## Reproduce the Saturated Dataset
 ```
