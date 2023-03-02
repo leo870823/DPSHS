@@ -101,85 +101,101 @@ if __name__ == '__main__':
 					   rho = 0.1,
 					   default_mode = "normal",
 					   over_threshold = 5.0, 
+					   hard_threshold = 0.9, 
 					   ES_Threshold = 0.1, 
 					   Monitor_FLAG = False)
 
-	solver_CG = DPSHS_CG(    max_iter = 100,
-			  		   _lambda = 2e-5,
-					   rho = 0.1,
-					   default_mode = "normal",
-					   over_threshold = 5.0, 
-					   ES_Threshold = 0.1, 
-					   Monitor_FLAG = False)
 
-	#SOLVER_LIST = [solver, solver_CG]
-	SOLVER_LIST = [solver_CG]
+
+	SOLVER_LIST = [solver]
+	GRID_DICT = {#"lambda":np.arange(1,11)*1e-5,
+				 #"rho":np.arange(1,11)*0.01
+				 "hard_threshold":np.arange(0.5,1.01,0.05)
+				 #"over_threshold":np.arange(1,11,1.0)
+				 #"alpha":np.arange(50,151,10)
+				 }
+	
 
 	psnr_tracker = MetricTracker("",writer = None) 
 	time_tracker = MetricTracker("",writer = None) 
 	ssim_tracker = MetricTracker("",writer = None) 
-	for SEED in SEED_LIST:
-		kernel,img,img_blurred = test_loader.dataset.__getitem__(index = SEED)
-		kernel,img,img_blurred = kernel.unsqueeze(0).to(device),img.unsqueeze(0).to(device),img_blurred.unsqueeze(0).to(device)
-		(N,C,H,W) = img_blurred.shape
-		for i,solver in tqdm(enumerate(SOLVER_LIST)):	
-			mode = type(solver).__name__
-			filenames = test_loader.get_data_set().file_list[SEED][:-4]
-			WO_LOG = os.path.join(IMG_DIR,"wo_log/")	
-			#path setting
-			mkdirs(WO_LOG)
-			mkdirs(IMG_DIR)
-			solver.eval()
-			time_start = time.time()
-			with torch.no_grad():
-				deblurred_img=solver.forward(img_blurred,kernel)
-			time_end = time.time()
-			time_diff = time_end-time_start
-			print("Total deblurring time:",time_diff) 
-			###############
-			# tensor2numpy
-			###############
-			deblurred_img_np = tensor_to_np_multiple(torch.clamp(deblurred_img,min=0.0,max=1.0))
-			img_blurred_np = tensor_to_np_multiple(torch.clamp(img_blurred,min=0.0,max=1.0))
-			img_np = tensor_to_np_multiple(img)
-			kernel_np = tensor_to_np_multiple(kernel)
-			print(kernel_np.dtype)
+	for (key, param_list) in GRID_DICT.items():
+		for param in param_list:
+			# update the path
+			IMG_DIR_TAG = "{}_{}_{}".format(IMG_DIR,key,param)
+			# update the parameter
+			if key == "lambda":
+				solver.LAMBDA[:,:,:,:] = param
+			elif key == "rho":
+				solver.RHO[:,:,:,:] = param
+			elif key == "hard_threshold":
+				solver.HARD_THRESHOLD = param
+			elif key == "over_threshold":
+				solver.OVER_THRESHOLD = param
+			elif key == "alpha":
+				solver.ALPHA = param
+			for SEED in SEED_LIST:
+				kernel,img,img_blurred = test_loader.dataset.__getitem__(index = SEED)
+				kernel,img,img_blurred = kernel.unsqueeze(0).to(device),img.unsqueeze(0).to(device),img_blurred.unsqueeze(0).to(device)
+				(N,C,H,W) = img_blurred.shape
+				for i,solver in tqdm(enumerate(SOLVER_LIST)):	
+					mode = type(solver).__name__
+					filenames = test_loader.get_data_set().file_list[SEED][:-4]
+					WO_LOG = os.path.join(IMG_DIR_TAG,"wo_log/")	
+					#path setting
+					mkdirs(WO_LOG)
+					mkdirs(IMG_DIR_TAG)
+					solver.eval()
+					time_start = time.time()
+					with torch.no_grad():
+						deblurred_img=solver.forward(img_blurred,kernel)
+					time_end = time.time()
+					time_diff = time_end-time_start
+					print("Total deblurring time:",time_diff) 
+					###############
+					# tensor2numpy
+					###############
+					deblurred_img_np = tensor_to_np_multiple(torch.clamp(deblurred_img,min=0.0,max=1.0))
+					img_blurred_np = tensor_to_np_multiple(torch.clamp(img_blurred,min=0.0,max=1.0))
+					img_np = tensor_to_np_multiple(img)
+					kernel_np = tensor_to_np_multiple(kernel)
+					print(kernel_np.dtype)
 
-			##########################################
-			# Scale Range of Pixels [0,1] ->[0,255]
-			##########################################
-			restored_img = img_as_ubyte(deblurred_img_np[0].copy())
-			input_img = img_as_ubyte(img_blurred_np[0].copy())
-			golden_img = img_as_ubyte(img_np[0].copy())
-			kernel_img = img_as_ubyte(kernel_np[0].copy())
-			import numpy as np
-			np.set_printoptions(threshold=np.inf)
-			print(np.max(kernel_np[0]),np.min(kernel_np[0]))
-			print(kernel_img[:,:,0])
-			print(kernel_img.shape)
-   
-			###################
-			# Compute SSIM/IQA
-			###################
-			deblurred_ssim = piq.ssim(img,torch.clamp(deblurred_img,min=0.0,max=1.0),data_range = 1.0)
-			deblurred_psnr = matlabPSNR(restored_img, golden_img)
+					##########################################
+					# Scale Range of Pixels [0,1] ->[0,255]
+					##########################################
+					restored_img = img_as_ubyte(deblurred_img_np[0].copy())
+					input_img = img_as_ubyte(img_blurred_np[0].copy())
+					golden_img = img_as_ubyte(img_np[0].copy())
+					kernel_img = img_as_ubyte(kernel_np[0].copy())
+					import numpy as np
+					np.set_printoptions(threshold=np.inf)
+					print(np.max(kernel_np[0]),np.min(kernel_np[0]))
+					print(kernel_img[:,:,0])
+					print(kernel_img.shape)
+	
+					###################
+					# Compute SSIM/IQA
+					###################
+					deblurred_ssim = piq.ssim(img,torch.clamp(deblurred_img,min=0.0,max=1.0),data_range = 1.0)
+					deblurred_psnr = matlabPSNR(restored_img, golden_img)
 
-			###############
-			# Save images
-			###############	
-			save_img_with_PSNR(os.path.join(WO_LOG, filenames+"_{}_wo.png".format(mode)),restored_img,golden_img,kernel_img,PSNR_flag=False)
-			deblurred_log = os.path.join(IMG_DIR,  filenames+'_%s_deblurred.png'%(mode))
-			deblurred_psnr,_ = save_img_with_PSNR(deblurred_log, restored_img.copy(),golden_img,kernel_img,WEIGHT_DICT={},PSNR = deblurred_psnr ,SSIM = deblurred_ssim)
+					###############
+					# Save images
+					###############	
+					save_img_with_PSNR(os.path.join(WO_LOG, filenames+"_{}_wo.png".format(mode)),restored_img,golden_img,kernel_img,PSNR_flag=False)
+					deblurred_log = os.path.join(IMG_DIR_TAG,  filenames+'_%s_deblurred.png'%(mode))
+					deblurred_psnr,_ = save_img_with_PSNR(deblurred_log, restored_img.copy(),golden_img,kernel_img,WEIGHT_DICT={},PSNR = deblurred_psnr ,SSIM = deblurred_ssim)
 
 
-			ssim_tracker.update(key = "{}_SSIM".format(mode),
-								value = deblurred_ssim)
-			psnr_tracker.update(key = "{}_PSNR".format(mode),
-								value = deblurred_psnr)
-			time_tracker.update(key = "{}_time".format(mode),
-								value = time_diff)
+					ssim_tracker.update(key = "{},{:.8f}".format(key,param),
+										value = deblurred_ssim)
+					psnr_tracker.update(key = "{},{:.8f}".format(key,param),
+										value = deblurred_psnr)
+					time_tracker.update(key = "{},{:.8f}".format(key,param),
+										value = time_diff)
 
-			print("log image to {}".format(deblurred_log))
+					print("log image to {}".format(deblurred_log))
 
 
 	#########################
@@ -187,12 +203,12 @@ if __name__ == '__main__':
 	#########################
 	print("Log average SSIM")
 	for key, value in ssim_tracker.result().items():
-		print("    {:15s}: {}".format(str(key), value))
+		print("{},{:.8f}".format(str(key), value))
 
 	print("Log average PSNR")
 	for key, value in psnr_tracker.result().items():
-		print("    {:15s}: {}".format(str(key), value))
+		print("{},{:.8f}".format(str(key), value))
 
 	print("Log average time")
 	for key, value in time_tracker.result().items():
-		print("    {:15s}: {}".format(str(key), value))
+		print("{},{:.8f}".format(str(key), value))
