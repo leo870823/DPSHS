@@ -13,6 +13,7 @@ class DPSHS(nn.Module):
 					   rho = 0.1,
 					   default_mode = "normal",
 					   over_threshold = 5.0, 
+					   hard_threshold = 0.9, 
 					   ES_Threshold = 0.1, 
 					   Monitor_FLAG = False):
 		super(DPSHS, self).__init__()
@@ -22,11 +23,13 @@ class DPSHS(nn.Module):
 		self.Monitor_FLAG = Monitor_FLAG
 		self.DEFAULT_MODE = default_mode
 		self.OVER_THRESHOLD = over_threshold
+		self.HARD_THRESHOLD = hard_threshold
 		self.LAMBDA = torch.tensor(_lambda).view(1,1,1,1).to(self.device)
 		self.RHO = torch.tensor(rho).view(1,1,1,1).to(self.device)
 		self.MAX_ITER = max_iter
 		self.ONES = torch.ones(1).to(self.device)
 		self.ZEROS = torch.zeros(1).to(self.device)
+		self.ALPHA = 1e2
 
 	##############################
 	# Utility Function
@@ -181,12 +184,11 @@ class DPSHS(nn.Module):
 		# whole image S and  non-saturation region V 
 		############################################
 		N,C,H,W = latent.shape
-		threshold = 0.9 #Yi-Hsien's comment [16,240]
 		if CROSS_FLAG and C == 3:
-			MASK = torch.logical_and(latent[:,0:1,:,:]>=threshold,latent[:,1:2,:,:]>=threshold)
-			MASK = torch.logical_and(MASK,latent[:,2:3,:,:]>=threshold)
+			MASK = torch.logical_and(latent[:,0:1,:,:]>=self.HARD_THRESHOLD,latent[:,1:2,:,:]>=self.HARD_THRESHOLD)
+			MASK = torch.logical_and(MASK,latent[:,2:3,:,:]>=self.HARD_THRESHOLD)
 		else:
-			MASK = latent>=threshold
+			MASK = latent>=self.HARD_THRESHOLD
 		S_hard = torch.clamp(self.RGBConv2D((MASK.clone()).type(dtype=latent.dtype).to(self.device),self.dilate_filter),min=0.0,max=1.0)
 		if TEMP_FLAG:
 			S_mask = self.S_mask_0*S_hard
@@ -247,7 +249,7 @@ class DPSHS(nn.Module):
 			print("QAQ => Non-defined initial mode")
 			assert(False)
 
-		print("Default {} mode".format(self.DEFAULT_MODE))
+		# print("Default {} mode".format(self.DEFAULT_MODE))
 		HALF_ITER = self.MAX_ITER//2
 		SCALE = 1.0
 		
@@ -278,6 +280,164 @@ class DPSHS(nn.Module):
 			v1 = self.FFT_conv(x,kernel)+u[:,0,:,:,:]
 			v2 = x + u[:,1,:,:,:]
 			z1 = self.Prox_P(v1,image/self.M,RHO)
+			v2 = torch.clamp(v2,min=0.0)
+			z2 = self.ProxF_PnP(v2,torch.sqrt(max(SCALE,1.0)*LAMBDA/RHO),iter=k)
+			z = torch.stack([z1,z2], axis=1)
+			u_Kx = torch.stack([v1,v2], axis=1)
+			# update multiplier
+			u = u_Kx  - z
+			if extreme_flag:
+				z_V = torch.stack([z1_V,z2,z3], axis=1)
+				u_Kx_V = torch.stack([v1_V,v2,v3], axis=1)
+				u_V = u_Kx_V  - z_V
+				
+   
+
+			if k>=1:
+				x_diff, u_diff, z_diff = self.compute_diff(x_old,x),self.compute_diff(u_old,u),self.compute_diff(z_old,z)
+				diff_sum = x_diff + u_diff + z_diff	
+				#print("%d th iter %f %f %f %f"%(k,x_diff, u_diff, z_diff, diff_sum))
+				#print("Stop Threshold {}".format(self.ES_Threshold/SCALE))
+				if self.Monitor_FLAG:
+					psnr_deblurred = torchPSNR(self.gt,torch.clamp(x[:,:,:self.H_ori,:self.W_ori],min=0.0,max=1.0))
+					deblurred_ssim = piq.ssim(self.gt,torch.clamp(x[:,:,:self.H_ori,:self.W_ori],min=0.0,max=1.0),data_range =1.0)
+					#print("PSNR:{} SSIM:{}".format(psnr_deblurred,deblurred_ssim))
+				if diff_u_old < u_diff and diff_x_old < x_diff and diff_z_old < z_diff and diff_sum < self.ES_Threshold/SCALE and not self.extreme_flag:
+					#print("Early stop at iter {}".format(k))
+					break
+				diff_u_old = u_diff
+				diff_x_old = x_diff
+				diff_z_old = z_diff
+			else:
+				diff_u_old = 1e8
+				diff_x_old = 1e8
+				diff_z_old = 1e8
+
+
+			# adaptive mask 
+			if max_pixel>=self.OVER_THRESHOLD and k<= HALF_ITER and not extreme_flag:
+				print("===========================")
+				print("switch to over-exposed mode")
+				print("===========================")
+				x,z,u = x_V,z_V[:,0:2,:,:,:],u_V[:,0:2,:,:,:,]
+				extreme_flag = True
+
+			self.extreme_flag = extreme_flag
+
+			max_pixel = torch.max(x).item() 
+			# print("Max pixel value",max_pixel)	
+			SCALE = min(math.pow(2,max_pixel),self.ALPHA)
+
+		return torch.clamp(x[:,:,:H_ORI,:W_ORI],min=0.0,max=1.0) 
+
+
+class DPSHS_CG(DPSHS):
+	##############################
+	# Generate matrix of Ax = b
+	##############################
+	def gen_CG_b_2(self,v,mask):
+		b = torch.conj(self.F_K)*self.myFFT(mask*v[:, 0, :, :, :]) \
+			+ self.myFFT(v[:, 1, :, :, :])
+		return b
+
+	def NB_compute_Ax_2(self,x,mask):
+		Fx = self.myFFT(x)
+		M_Ax = mask*mask*self.myIFFT(Fx*self.F_K)
+		AT_MT_M_Ax = self.myIFFT(torch.conj(self.F_K)*self.myFFT(M_Ax))
+		return AT_MT_M_Ax+x
+
+	def Prox_quad(self, x, v,mask, maxIt, tol=1e-5):
+		b = self.gen_CG_b_2(v,mask)
+		r = self.myIFFT(b) - self.NB_compute_Ax_2(x,mask)
+		p = r
+		rsold = torch.sum(r*r)
+		# start CG
+		# print("=> CG start")
+		for iter in range(0, maxIt):
+			Ap = self.NB_compute_Ax_2(p,mask)
+			alpha = rsold/torch.sum(p*Ap)
+			x = x+alpha*p
+			r = r-alpha*Ap
+			rsnew = torch.sum(r*r)
+			#print(iter,rsnew)
+			if torch.sqrt(rsnew) < tol:
+				break
+			p = r+rsnew/rsold*p
+			rsold = rsnew
+		return x
+
+	def forward(self,image,kernel,scale=0):
+		#####################
+		# Pad blurred image
+		#####################
+		image,H_ORI,W_ORI = self.pad_image(img_blurred = image, kernel = kernel, device = self.device)
+
+		#####################
+		# Initialization
+		#####################		
+		self.k_sz = kernel.shape[2]
+		self.psf_dilate = (kernel!=0.0).type(kernel.dtype)
+		kernel_flip = torch.flip(kernel, [2, 3])
+		self.F_K = self.psf2otf(kernel,image.shape)
+		self.F_K_flip = self.psf2otf(kernel_flip,image.shape)
+		self.M = self.ONES	
+		self.S_mask_0 = self.S_mask = torch.ones_like(image).type(torch.bool)
+		self.S_mask_0,self.M_U,blend_weights = self.image_mask(image)
+
+		#####################
+		# ADMM Variable
+		#####################		
+		LAMBDA,RHO = self.LAMBDA, self.RHO 
+		image_init,image_init_U = image,torch.zeros_like(image)
+		x = image_init
+		z = u = torch.stack([image_init]*2, axis=1)
+		x_V = image_init_U
+		z_V = u_V = torch.stack([image_init_U]*3, axis=1)
+
+		if self.DEFAULT_MODE == "normal":
+			extreme_flag = False
+		elif self.DEFAULT_MODE == "over":
+			extreme_flag = True
+		else:
+			print("QAQ => Non-defined initial mode")
+			assert(False)
+
+		print("Default {} mode".format(self.DEFAULT_MODE))
+		HALF_ITER = self.MAX_ITER//2
+		SCALE = 1.0
+		
+
+		for k in range(0,self.MAX_ITER):
+			x_old = x
+			z_old = z
+			u_old = u
+			z_u = z-u
+			#x = self.Prox_quad(z_u,kernel,image/self.M)
+			x = self.Prox_quad(x=image if k == 0 or  (x == 0.0).all() else x,
+							   v=z_u,
+							   maxIt=20,
+							   mask = self.M,
+							   tol=1e-5)
+			if extreme_flag:
+				z_u_V = z_V-u_V
+				x_V = self.NB_quadratic_CG(x=image if k == 0 or  (x_V == 0.0).all() else x_V,
+									   v=z_u_V,
+									   maxIt=20,
+									   mask = self.M_U,
+									   tol=1e-5)
+				x = x_V+(x - x_V)*blend_weights
+				v1_V = self.FFT_conv(x,kernel)*self.M_U+u_V[:,0,:,:,:]
+				v3 = x + u_V[:,2,:,:,:]
+				z1_V = self.Prox_P(v1_V,image*self.M_U,RHO)
+				z3 = self.Prox_I(v3)
+				self.S_mask,self.M_U,blend_weights = self.image_mask(x)
+
+			max_pixel = torch.max(x)
+			self.M = self.update_M(x,kernel)	
+			# update v
+			v1 = self.FFT_conv(x,kernel)*self.M+u[:,0,:,:,:]
+			v2 = x + u[:,1,:,:,:]
+			z1 = self.Prox_P(v1,image,RHO)
 			v2 = torch.clamp(v2,min=0.0)
 			z2 = self.ProxF_PnP(v2,torch.sqrt(max(SCALE,1.0)*LAMBDA/RHO),iter=k)
 			z = torch.stack([z1,z2], axis=1)

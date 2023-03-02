@@ -7,8 +7,10 @@ from data_loader.data_loaders import Low_light_DataLoader,Chen_Low_light_DataLoa
 import os
 from tqdm import tqdm
 from skimage import img_as_ubyte
+import skimage
+print(skimage.__version__)
 import piq
-from model.model import DPSHS
+from model.model import DPSHS,DPSHS_CG
 from model.util import MetricTracker, tensor_to_np_multiple, save_img_with_PSNR, matlabPSNR, torchPSNR, mkdirs
 # Fix random seeds for reproducibility
 SEED = 123
@@ -16,12 +18,13 @@ torch.manual_seed(SEED)
 torch.backends.cudnn.deterministic = True
 torch.backends.cudnn.benchmark = False
 np.random.seed(SEED)
+import shutup; shutup.please()
 # Parser arguments
 parser = argparse.ArgumentParser()
 parser.add_argument("-dataset", "--dataset", type=str, default="Hu", help='')
-parser.add_argument("-log", "--log", type=str, default="Compare_Hu/", help='')
+parser.add_argument("-log", "--log", type=str, default="LOG_TIME/", help='')
 parser.add_argument("-all_test", "--all_test", action='store_true', help='')
-parser.add_argument("-local_path", "-local_path", type=str, default="./", help='')
+parser.add_argument("-local_path", "-local_path", type=str, default="/home/r09021/unfolding_research/Motion_deblur", help='')
 args = parser.parse_args()
 if __name__ == '__main__':
 	# Environment setting
@@ -50,9 +53,10 @@ if __name__ == '__main__':
 			print("all data mode: totoal {} image".format(test_loader.dataset.__len__()))
 			SEED_LIST = range(0,test_loader.dataset.__len__())
 		else:
-   			SEED_LIST = [test_loader.get_data_set().file_list.index('10_f9.png'),
-          				 test_loader.get_data_set().file_list.index('6_f10.png'),
-				   		 test_loader.get_data_set().file_list.index('8_f13.png')]
+   			SEED_LIST = [#test_loader.get_data_set().file_list.index('10_f9.png'),
+          				 test_loader.get_data_set().file_list.index('1_f4.png')]
+          				 #test_loader.get_data_set().file_list.index('6_f10.png'),
+				   		 #test_loader.get_data_set().file_list.index('8_f13.png')]
 
 	elif DATASET == "Chen":
 		test_loader  = Chen_Low_light_DataLoader(
@@ -99,7 +103,17 @@ if __name__ == '__main__':
 					   over_threshold = 5.0, 
 					   ES_Threshold = 0.1, 
 					   Monitor_FLAG = False)
-	SOLVER_LIST = [solver]
+
+	solver_CG = DPSHS_CG(    max_iter = 100,
+			  		   _lambda = 2e-5,
+					   rho = 0.1,
+					   default_mode = "normal",
+					   over_threshold = 5.0, 
+					   ES_Threshold = 0.1, 
+					   Monitor_FLAG = False)
+
+	#SOLVER_LIST = [solver, solver_CG]
+	SOLVER_LIST = [solver_CG]
 
 	psnr_tracker = MetricTracker("",writer = None) 
 	time_tracker = MetricTracker("",writer = None) 
@@ -129,6 +143,7 @@ if __name__ == '__main__':
 			img_blurred_np = tensor_to_np_multiple(torch.clamp(img_blurred,min=0.0,max=1.0))
 			img_np = tensor_to_np_multiple(img)
 			kernel_np = tensor_to_np_multiple(kernel)
+			print(kernel_np.dtype)
 
 			##########################################
 			# Scale Range of Pixels [0,1] ->[0,255]
@@ -137,6 +152,11 @@ if __name__ == '__main__':
 			input_img = img_as_ubyte(img_blurred_np[0].copy())
 			golden_img = img_as_ubyte(img_np[0].copy())
 			kernel_img = img_as_ubyte(kernel_np[0].copy())
+			import numpy as np
+			np.set_printoptions(threshold=np.inf)
+			print(np.max(kernel_np[0]),np.min(kernel_np[0]))
+			print(kernel_img[:,:,0])
+			print(kernel_img.shape)
    
 			###################
 			# Compute SSIM/IQA
